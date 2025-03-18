@@ -1,35 +1,21 @@
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
-
-#include <iostream>
-
-using std::cout, std::endl;
+#include "VulkanApplication.h"
 
 int main() {
-	glfwInit();
+	HelloTriangleApplication app;
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan Window", nullptr, nullptr);
-
-	uint32_t extensionCount = 0;
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-	cout << extensionCount << endl;
-
-	glm::mat4 matrix;
-	glm::vec4 vec;
-	auto test = matrix * vec;
-
-	while (!glfwWindowShouldClose(window)) {
-		glfwPollEvents();
+	try {
+		app.run();
+	} catch (const std::exception& e) {
+		cerr << e.what() << endl;
+		return EXIT_FAILURE;
 	}
 
-	glfwDestroyWindow(window);
-	glfwTerminate();
-	return 0;
+	return EXIT_SUCCESS;
 }
+
+/*
+PRESENT_MODE_FIFO:			V-SYNC - ALWAYS AVAILABLE
+PRESENT_MODE_FIFO_RELAXED: NO V-SYNC
+PRESENT_MODE_IMMEDIATE:	NO VSYNC
+PRESENT_MODE_MAILBOX:		V-SYNC + LESS LATENCY
+*/

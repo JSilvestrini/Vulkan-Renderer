@@ -2,3 +2,4 @@
 /VulkanTest
 /x64
 /VulkanTest.*
+*.spv
