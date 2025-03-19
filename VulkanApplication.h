@@ -23,6 +23,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
+#include <stb_image.h>
+
 using std::cout, std::cerr, std::endl;
 
 struct QueueFamilyIndices {
@@ -41,6 +43,7 @@ struct SwapchainSupportDetails {
 struct Vertex {
 	glm::vec3 color;
 	glm::vec3 pos;
+	glm::vec2 texCoord;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
@@ -50,8 +53,8 @@ struct Vertex {
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
@@ -62,6 +65,11 @@ struct Vertex {
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
 		return attributeDescriptions;
 	}
@@ -113,12 +121,16 @@ class HelloTriangleApplication {
 		std::vector<void*> uniformBuffersMapped;
 		VkDescriptorPool descriptorPool;
 		std::vector<VkDescriptorSet> descriptorSets;
+		VkImage textureImage;
+		VkDeviceMemory textureImageMemory;
+		VkImageView textureImageView;
+		VkSampler textureSampler;
 
 		const std::vector<Vertex> vertices = {
-			{{1.0f, 0.0f, 0.0f}, {-0.5f, -0.5f, 0.0f}},
-			{{0.0f, 1.0f, 0.0f}, {0.5f, -0.5f, 0.0f}},
-			{{0.0f, 0.0f, 1.0f}, {0.5f, 0.5f, 0.0f}},
-			{{1.0f, 1.0f, 1.0f}, {-0.5f, 0.5f, 0.0f}}
+			{{1.0f, 0.0f, 0.0f}, {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}},
+			{{0.0f, 1.0f, 0.0f}, {0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}},
+			{{0.0f, 0.0f, 1.0f}, {0.5f, 0.5f, 0.0f}, {0.0f, 1.0f}},
+			{{1.0f, 1.0f, 1.0f}, {-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}}
 		};
 
 		const std::vector<uint16_t> indices = {
@@ -178,6 +190,17 @@ class HelloTriangleApplication {
 		void updateUniformBuffer(uint32_t currentImage);
 		void createDescriptorPool();
 		void createDescriptorSets();
+		void createTextureImage();
+		void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+			VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
+			VkDeviceMemory& imageMemory);
+		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+		VkCommandBuffer beginSingleTimeCommands();
+		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+		VkImageView createImageView(VkImage image, VkFormat format);
+		void createTextureImageView();
+		void createTextureSampler();
 };
 
 #endif
