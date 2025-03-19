@@ -18,7 +18,10 @@
 #include <set>
 #include <array>
 
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <chrono>
 
 using std::cout, std::cerr, std::endl;
 
@@ -62,7 +65,12 @@ struct Vertex {
 
 		return attributeDescriptions;
 	}
+};
 
+struct UniformBufferObject {
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 projection;
 };
 
 // TODO: Create a Road Map of setting up a general project once The Triangle is completely drawn
@@ -99,6 +107,12 @@ class HelloTriangleApplication {
 		VkDeviceMemory vertexBufferMemory;
 		VkBuffer indexBuffer;
 		VkDeviceMemory indexBufferMemory;
+		VkDescriptorSetLayout descriptorSetLayout;
+		std::vector<VkBuffer> uniformBuffers;
+		std::vector<VkDeviceMemory> uniformBuffersMemories;
+		std::vector<void*> uniformBuffersMapped;
+		VkDescriptorPool descriptorPool;
+		std::vector<VkDescriptorSet> descriptorSets;
 
 		const std::vector<Vertex> vertices = {
 			{{1.0f, 0.0f, 0.0f}, {-0.5f, -0.5f, 0.0f}},
@@ -132,6 +146,7 @@ class HelloTriangleApplication {
 		void createCommandPool();
 		void createFrameBuffer();
 		void createRenderPass();
+		void createDescriptorSetLayout();
 		void createGraphicsPipeline();
 		VkShaderModule createShaderModule(const std::vector<char>& code);
 		static std::vector<char> readFile(const std::string& filename);
@@ -159,6 +174,10 @@ class HelloTriangleApplication {
 		void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 			VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+		void createUniformBuffers();
+		void updateUniformBuffer(uint32_t currentImage);
+		void createDescriptorPool();
+		void createDescriptorSets();
 };
 
 #endif
