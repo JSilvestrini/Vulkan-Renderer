@@ -3,10 +3,7 @@
 
 #include "VulkanApplicationInstanceManager.h"
 #include "VulkanApplicationDeviceManager.h"
-
-#include <vulkan/vulkan.h>
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include "VulkanApplicationSwapchainManager.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -80,22 +77,26 @@ class HelloTriangleApplication {
 		std::unique_ptr<VulkanApplicationInstanceManager> instanceManager;
 		VkSurfaceKHR surface; // Could use platform specific stuff here if I wanted
 		std::unique_ptr<VulkanApplicationDeviceManager> deviceManager;
-		VkSwapchainKHR swapchain;
-		std::vector<VkImage> swapchainImages;
-		VkFormat swapchainImageFormat;
-		VkExtent2D swapchainExtent;
-		std::vector<VkImageView> swapchainImageViews;
+		std::unique_ptr<VulkanApplicationSwapchainManager> swapchainManager;
+
+		// graphics pipeline file/ render file
 		VkRenderPass renderPass;
 		VkPipelineLayout pipelineLayout;
 		VkPipeline graphicsPipeline;
-		std::vector<VkFramebuffer> swapchainFramebuffers;
+
+		// command file
 		VkCommandPool commandPool;
 		std::vector<VkCommandBuffer> commandBuffers;
+
+		// sync object file
 		std::vector<VkSemaphore> imageAvailableSemaphores;
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;
+
 		uint32_t currentFrame = 0;
 		bool framebufferResized = false;
+
+		// buffer file
 		VkBuffer vertexBuffer;
 		VkDeviceMemory vertexBufferMemory;
 		VkBuffer indexBuffer;
@@ -106,6 +107,8 @@ class HelloTriangleApplication {
 		std::vector<void*> uniformBuffersMapped;
 		VkDescriptorPool descriptorPool;
 		std::vector<VkDescriptorSet> descriptorSets;
+
+		//texture file
 		VkImage textureImage;
 		VkDeviceMemory textureImageMemory;
 		VkImageView textureImageView;
@@ -129,27 +132,21 @@ class HelloTriangleApplication {
 	private:
 		void initWindow();
 		void initVulkan();
+		void createSurface();
 		void createSyncObjects();
 		void createCommandBuffer();
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 		void createCommandPool();
-		void createFrameBuffer();
 		void createRenderPass();
 		void createDescriptorSetLayout();
 		void createGraphicsPipeline();
 		VkShaderModule createShaderModule(const std::vector<char>& code);
 		static std::vector<char> readFile(const std::string& filename);
-		void createImageViews();
-		void createSwapChain();
-		void createSurface();
-		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+
 		void mainLoop();
 		void drawFrame();
 		void cleanup();
-		void recreateSwapchain();
-		void cleanupSwapchain();
+
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 		void createVertexBuffer();
 		void createIndexBuffer();
@@ -169,7 +166,6 @@ class HelloTriangleApplication {
 		VkCommandBuffer beginSingleTimeCommands();
 		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-		VkImageView createImageView(VkImage image, VkFormat format);
 		void createTextureImageView();
 		void createTextureSampler();
 };

@@ -18,7 +18,8 @@
 
 #include <vector>
 #include <optional>
-
+#include <limits>
+#include <algorithm>
 #include <memory>
 
 using std::cout, std::endl, std::cerr;
@@ -63,4 +64,5 @@ std::vector<const char*> getRequiredExtensions();
 bool checkValidationLayerSupport();
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice pDevice, VkSurfaceKHR surface);
 SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
+VkImageView createImageView(VkImage image, VkFormat format, VkDevice logicalDevice);
 #endif
