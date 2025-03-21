@@ -89,7 +89,7 @@ struct UniformBufferObject {
 class HelloTriangleApplication {
 	private:
 		GLFWwindow* window;
-		VulkanApplicationInstanceManager* instanceManager;
+		std::unique_ptr<VulkanApplicationInstanceManager> instanceManager;
 		VkSurfaceKHR surface; // Could use platform specific stuff here if I wanted
 		VkDevice device;
 		VkQueue presentQueue;

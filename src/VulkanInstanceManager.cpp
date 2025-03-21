@@ -64,8 +64,6 @@ VulkanApplicationInstanceManager::VulkanApplicationInstanceManager() {
 		createInfo.pNext = nullptr;
 	}
 
-
-
 	// if on an apple device
 #if __APPLE__
 	std::vector<const char*> requiredExtensions;
@@ -90,7 +88,9 @@ VulkanApplicationInstanceManager::VulkanApplicationInstanceManager() {
 	setupDebugMessenger();
 }
 
-VulkanApplicationInstanceManager::~VulkanApplicationInstanceManager() {
+VulkanApplicationInstanceManager::~VulkanApplicationInstanceManager() {}
+
+void VulkanApplicationInstanceManager::cleanup() {
 	if (debug) { DestroyDebugMessengerEXT(instance, debugMessenger, nullptr); }
 	vkDestroyInstance(instance, nullptr);
 }

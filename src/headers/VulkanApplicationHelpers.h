@@ -18,6 +18,8 @@
 
 #include <vector>
 
+#include <memory>
+
 using std::cout, std::endl, std::cerr;
 
 /**************************

@@ -7,7 +7,28 @@
 // TODO: Does window perform strange behavior during pause?
 // TODO: Split entire application into different files:
 /*
-	1. Instance Manager
+* Fix the Following Validation Layer Issues
+1.
+Validation Layer:Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-00749 ] | MessageID = 0x1b1ca73 |
+vkCreateGraphicsPipelines(): pCreateInfos[0].pRasterizationState->lineWidth is 0.000000, but the line width state is static
+(pCreateInfos[0].pDynamicState->pDynamicStates does not contain VK_DYNAMIC_STATE_LINE_WIDTH) and wideLines feature was not enabled.
+
+The Vulkan spec states: If the pipeline requires pre-rasterization shader state, and the wideLines feature is not enabled,
+and no element of the pDynamicStates member of pDynamicState is VK_DYNAMIC_STATE_LINE_WIDTH, the lineWidth member of pRasterizationState
+must be 1.0 (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-00749)
+
+2.
+Validation Layer:Validation Error: [ VUID-vkCmdPipelineBarrier-pImageMemoryBarriers-02820 ] Object 0: handle = 0x24fc1562070,
+type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0xaf8d561d | vkCmdPipelineBarrier(): pImageMemoryBarriers[0].dstAccessMask
+(VK_ACCESS_TRANSFER_READ_BIT) is not supported by stage mask (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT).
+
+The Vulkan spec states: For any element of pImageMemoryBarriers, if its srcQueueFamilyIndex and dstQueueFamilyIndex members are equal,
+or if its dstQueueFamilyIndex is the queue family index that was used to create the command pool that commandBuffer was allocated from,
+then its dstAccessMask member must only contain access flags that are supported by one or more of the pipeline stages in dstStageMask,
+as specified in the table of supported access types (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-pImageMemoryBarriers-02820)
+*/
+/*
+	1. Instance Manager								[DONE]
 		- Instance and Create Info
 	2. Device Manager
 		- Physical and Logical Device Info
@@ -38,7 +59,7 @@
 
 HelloTriangleApplication::HelloTriangleApplication() {
 	initWindow();
-	instanceManager = new VulkanApplicationInstanceManager();
+	instanceManager = std::make_unique<VulkanApplicationInstanceManager>();
 }
 
 HelloTriangleApplication::~HelloTriangleApplication() {
@@ -1291,7 +1312,8 @@ void HelloTriangleApplication::cleanup() {
 
 	// nullptr is a custom allocator callback
 	vkDestroySurfaceKHR(instanceManager->getInstance(), surface, nullptr); //destroy before instance
-	delete instanceManager;
+
+	instanceManager->cleanup();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
