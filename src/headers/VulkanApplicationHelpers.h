@@ -17,14 +17,15 @@
 #include <cstdlib>
 
 #include <vector>
+#include <optional>
 
 #include <memory>
 
 using std::cout, std::endl, std::cerr;
 
-/**************************
-		CONSTANTS
-***************************/
+/*****************************************************
+					CONSTANTS
+*****************************************************/
 const uint32_t kWIDTH = 800;
 const uint32_t kHEIGHT = 600;
 const bool debug = true;
@@ -38,7 +39,28 @@ const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
+/**************************************************
+					STRUCTS
+***************************************************/
+struct QueueFamilyIndices {
+	std::optional<uint32_t> graphicsFamily;
+	std::optional<uint32_t> presentFamily;
+
+	bool isComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
+};
+
+struct SwapchainSupportDetails {
+	VkSurfaceCapabilitiesKHR capabilities;
+	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkPresentModeKHR> presentModes;
+};
+
+/****************************************************
+				HELPER FUNCTIONS
+*****************************************************/
+
 std::vector<const char*> getRequiredExtensions();
 bool checkValidationLayerSupport();
-
+QueueFamilyIndices findQueueFamilies(VkPhysicalDevice pDevice, VkSurfaceKHR surface);
+SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 #endif

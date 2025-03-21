@@ -1,7 +1,8 @@
 #ifndef TRIANGLE_APPLICATION
 #define TRIANGLE_APPLICATION
 
-#include "VulkanInstanceManager.h"
+#include "VulkanApplicationInstanceManager.h"
+#include "VulkanApplicationDeviceManager.h"
 
 #include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_VULKAN
@@ -27,19 +28,6 @@
 #include <stb_image.h>
 
 using std::cout, std::cerr, std::endl;
-
-struct QueueFamilyIndices {
-	std::optional<uint32_t> graphicsFamily;
-	std::optional<uint32_t> presentFamily;
-
-	bool isComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
-};
-
-struct SwapchainSupportDetails {
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
-};
 
 struct Vertex {
 	glm::vec3 color;
@@ -91,10 +79,7 @@ class HelloTriangleApplication {
 		GLFWwindow* window;
 		std::unique_ptr<VulkanApplicationInstanceManager> instanceManager;
 		VkSurfaceKHR surface; // Could use platform specific stuff here if I wanted
-		VkDevice device;
-		VkQueue presentQueue;
-		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-		VkQueue graphicsQueue;
+		std::unique_ptr<VulkanApplicationDeviceManager> deviceManager;
 		VkSwapchainKHR swapchain;
 		std::vector<VkImage> swapchainImages;
 		VkFormat swapchainImageFormat;
@@ -157,12 +142,6 @@ class HelloTriangleApplication {
 		void createImageViews();
 		void createSwapChain();
 		void createSurface();
-		void createLogicalDevice();
-		void pickPhysicalDevice();
-		bool isDeviceSuitable(VkPhysicalDevice pDevice);
-		bool checkDeviceExtensionSupport(VkPhysicalDevice pDevice);
-		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice pDevice);
-		SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice pDevice);
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);

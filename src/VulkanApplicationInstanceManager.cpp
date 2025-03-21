@@ -1,4 +1,4 @@
-#include "headers/VulkanInstanceManager.h"
+#include "headers/VulkanApplicationInstanceManager.h"
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
 	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
