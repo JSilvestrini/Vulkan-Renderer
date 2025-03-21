@@ -1,4 +1,4 @@
-#include "VulkanApplication.h"
+#include "headers/VulkanApplication.h"
 
 // TODO: Create a Road Map of setting up a general project once The Triangle is completely drawn
 // TODO: Try and know the general steps, specific implementation can come later
@@ -36,49 +36,18 @@
 		- Surface Manager
 */
 
-const uint32_t kWIDTH = 800;
-const uint32_t kHEIGHT = 600;
-const bool debug = true;
-const int kMAX_FRAMES_IN_FLIGHT = 2;
-
-const std::vector<const char*> validationLayers = {
-	"VK_LAYER_KHRONOS_validation"
-};
-
-const std::vector<const char*> deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
-
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
-	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkDebugUtilsMessengerEXT* pDebugMessenger) {
-
-	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-
-	if (func != nullptr) {
-		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-	} else {
-		return VK_ERROR_EXTENSION_NOT_PRESENT;
-	}
+HelloTriangleApplication::HelloTriangleApplication() {
+	initWindow();
+	instanceManager = new VulkanApplicationInstanceManager();
 }
 
-void DestroyDebugMessengerEXT(VkInstance instance,
-	VkDebugUtilsMessengerEXT debugMessenger,
-	const VkAllocationCallbacks* pAllocator) {
-
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-
-	if (func != nullptr) {
-		func(instance, debugMessenger, pAllocator);
-	}
+HelloTriangleApplication::~HelloTriangleApplication() {
+	cleanup();
 }
 
 void HelloTriangleApplication::run() {
-	initWindow();
 	initVulkan();
 	mainLoop();
-	cleanup();
 }
 
 void HelloTriangleApplication::initWindow() {
@@ -96,146 +65,7 @@ void HelloTriangleApplication::framebufferResizeCallback(GLFWwindow* window, int
 	app->framebufferResized = true;
 }
 
-bool HelloTriangleApplication::checkValidationLayerSupport() {
-	uint32_t layerCount;
-	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-	std::vector<VkLayerProperties> availableLayers(layerCount);
-	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-	for (const char* layerName : validationLayers) {
-		bool layerFound = false;
-
-		for (const auto& layerProperties : availableLayers) {
-			if (strcmp(layerName, layerProperties.layerName) == 0) {
-				layerFound = true;
-				break;
-			}
-		}
-
-		if (!layerFound) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-std::vector<const char*> HelloTriangleApplication::getRequiredExtensions() {
-	uint32_t glfwExtensionCount = 0;
-	const char** glfwExtensions;
-	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-	std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-	if (debug) {
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
-
-	return extensions;
-}
-
-void HelloTriangleApplication::createInstance() {
-	if (debug && !checkValidationLayerSupport()) {
-		// TODO: Create Custom Error
-		throw std::runtime_error("Validation Layers Requested, but not Available");
-	}
-
-	VkApplicationInfo appInfo{};
-	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "Hello Triangle";
-	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.pEngineName = "No Engine";
-	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.apiVersion = VK_API_VERSION_1_0;
-
-	VkInstanceCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	createInfo.pApplicationInfo = &appInfo;
-
-	auto extensions = getRequiredExtensions();
-
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-	createInfo.ppEnabledExtensionNames = extensions.data();
-
-	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-
-	if (debug) {
-		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-		createInfo.ppEnabledLayerNames = validationLayers.data();
-
-		populateDebugMessengerCreateInfo(debugCreateInfo);
-		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-	} else {
-		createInfo.enabledLayerCount = 0;
-		createInfo.pNext = nullptr;
-	}
-
-	// if on an apple device
-	#if __APPLE__
-	std::vector<const char*> requiredExtensions;
-
-	for (uint32_t i = 0; i < glfwExtensionCount; i++) {
-		requiredExtensions.emplace_back(glfwExtensions[i]);
-	}
-
-	requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-	createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-
-	createInfo.enabledExtensionCount = (uint32_t)requiredExtensions.size();
-	createInfo.ppEnabledExtensionNames = requiredExtensions.data();
-	#endif
-
-
-
-	// the nullptr is a pointer to the custom allocator callbacks
-	if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-		// TODO: Create Custom Error Classes?
-		throw std::runtime_error("Failed to Create Vulkan Instance");
-	}
-}
-
-VKAPI_ATTR VkBool32 VKAPI_CALL HelloTriangleApplication::debugCallback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	void* pUserData) {
-	/*
-		diagnostic message, informational message,
-		message about the behavior maybe a bug, message about potential crashes
-	*/
-
-	cerr << "Validation Layer:" << pCallbackData->pMessage << endl;
-
-	return VK_FALSE;
-}
-
-void HelloTriangleApplication::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
-	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	createInfo.pfnUserCallback = debugCallback;
-	createInfo.pUserData = nullptr;
-}
-
-void HelloTriangleApplication::setupDebugMessenger() {
-	if (!debug) { return; }
-
-	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-	populateDebugMessengerCreateInfo(createInfo);
-
-	if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-		throw std::runtime_error("Failed to Create a Debug Messenger");
-	}
-}
-
 void HelloTriangleApplication::initVulkan() {
-	createInstance();
-	setupDebugMessenger();
 	createSurface();
 	pickPhysicalDevice();
 	createLogicalDevice();
@@ -295,7 +125,7 @@ void HelloTriangleApplication::createTextureSampler() {
 
 void HelloTriangleApplication::createTextureImage() {
 	int texWidth, texHeight, texChannels;
-	stbi_uc* pixels = stbi_load("Statue_Image.jpg", &texWidth, &texHeight, &texChannels,
+	stbi_uc* pixels = stbi_load("textures/Statue_Image.jpg", &texWidth, &texHeight, &texChannels,
 		STBI_rgb_alpha);
 
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -859,7 +689,7 @@ void HelloTriangleApplication::createRenderPass() {
 	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	dependency.srcAccessMask = 0;
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstSubpass = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -876,8 +706,8 @@ void HelloTriangleApplication::createRenderPass() {
 }
 
 void HelloTriangleApplication::createGraphicsPipeline() {
-	auto vertexShaderCode = readFile("vert.spv");
-	auto fragmentShaderCode = readFile("frag.spv");
+	auto vertexShaderCode = readFile("shaders/vert.spv");
+	auto fragmentShaderCode = readFile("shaders/frag.spv");
 
 	VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode);
 	VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode);
@@ -1095,7 +925,7 @@ void HelloTriangleApplication::createSwapChain() {
 }
 
 void HelloTriangleApplication::createSurface() {
-	if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+	if (glfwCreateWindowSurface(instanceManager->getInstance(), window, nullptr, &surface) != VK_SUCCESS) {
 		// TODO: MAKE CUSTOM ERROR
 		throw std::runtime_error("Failed to Create Window Surface");
 	}
@@ -1146,14 +976,14 @@ void HelloTriangleApplication::createLogicalDevice() {
 
 void HelloTriangleApplication::pickPhysicalDevice() {
 	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+	vkEnumeratePhysicalDevices(instanceManager->getInstance(), &deviceCount, nullptr);
 
 	if (deviceCount == 0) {
 		throw std::runtime_error("Failed to Find Vulkan Compatable GPUs");
 	}
 
 	std::vector<VkPhysicalDevice> devices(deviceCount);
-	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+	vkEnumeratePhysicalDevices(instanceManager->getInstance(), &deviceCount, devices.data());
 
 	// could remove this loop and instead create an ordered map to store each device in
 	// then rate each device based on score and use the highest score
@@ -1459,11 +1289,10 @@ void HelloTriangleApplication::cleanup() {
 
 	vkDestroyDevice(device, nullptr);
 
-	if (debug) { DestroyDebugMessengerEXT(instance, debugMessenger, nullptr); }
-
 	// nullptr is a custom allocator callback
-	vkDestroySurfaceKHR(instance, surface, nullptr); //destroy before instance
-	vkDestroyInstance(instance, nullptr);
+	vkDestroySurfaceKHR(instanceManager->getInstance(), surface, nullptr); //destroy before instance
+	delete instanceManager;
+
 	glfwDestroyWindow(window);
 	glfwTerminate();
 }

@@ -1,8 +1,9 @@
 #ifndef TRIANGLE_APPLICATION
 #define TRIANGLE_APPLICATION
 
-#include <vulkan/vulkan.h>
+#include "VulkanInstanceManager.h"
 
+#include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -88,8 +89,7 @@ struct UniformBufferObject {
 class HelloTriangleApplication {
 	private:
 		GLFWwindow* window;
-		VkInstance instance;
-		VkDebugUtilsMessengerEXT debugMessenger;
+		VulkanApplicationInstanceManager* instanceManager;
 		VkSurfaceKHR surface; // Could use platform specific stuff here if I wanted
 		VkDevice device;
 		VkQueue presentQueue;
@@ -138,19 +138,11 @@ class HelloTriangleApplication {
 		};
 
 	public:
+		HelloTriangleApplication();
+		~HelloTriangleApplication();
 		void run();
 	private:
 		void initWindow();
-		bool checkValidationLayerSupport();
-		std::vector<const char*> getRequiredExtensions();
-		void createInstance();
-		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-			VkDebugUtilsMessageTypeFlagsEXT messageType,
-			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-			void* pUserData);
-		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-		void setupDebugMessenger();
 		void initVulkan();
 		void createSyncObjects();
 		void createCommandBuffer();
