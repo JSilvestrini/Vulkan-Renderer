@@ -6,6 +6,7 @@
 #include "VulkanApplicationSwapchainManager.h"
 #include "VulkanApplicationGraphicsManager.h"
 #include "VulkanApplicationTextureManager.h"
+#include "VulkanApplicationBufferManager.h"
 
 #include <chrono>
 
@@ -36,31 +37,11 @@ class HelloTriangleApplication {
 		uint32_t currentFrame = 0;
 		bool framebufferResized = false;
 		// buffer file
-		VkBuffer vertexBuffer;
-		VkDeviceMemory vertexBufferMemory;
-		VkBuffer indexBuffer;
-		VkDeviceMemory indexBufferMemory;
+		std::unique_ptr<VulkanApplicationBufferManager> bufferManager;
 		// descriptor file
 		VkDescriptorSetLayout descriptorSetLayout;
-		// buffer
-		std::vector<VkBuffer> uniformBuffers;
-		std::vector<VkDeviceMemory> uniformBuffersMemories;
-		std::vector<void*> uniformBuffersMapped;
-		// descriptor
 		VkDescriptorPool descriptorPool;
 		std::vector<VkDescriptorSet> descriptorSets;
-
-
-		const std::vector<Vertex> vertices = {
-			{{1.0f, 0.0f, 0.0f}, {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}},
-			{{0.0f, 1.0f, 0.0f}, {0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}},
-			{{0.0f, 0.0f, 1.0f}, {0.5f, 0.5f, 0.0f}, {0.0f, 1.0f}},
-			{{1.0f, 1.0f, 1.0f}, {-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}}
-		};
-
-		const std::vector<uint16_t> indices = {
-			0, 1, 2, 2, 3, 0
-		};
 
 	public:
 		HelloTriangleApplication();
@@ -70,6 +51,7 @@ class HelloTriangleApplication {
 		void initWindow();
 		void createSurface();
 		void createSyncObjects();
+
 		void createCommandBuffer();
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 		void createCommandPool();
@@ -81,18 +63,9 @@ class HelloTriangleApplication {
 		void cleanup();
 
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
-		void createVertexBuffer();
-		void createIndexBuffer();
 
-		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-		void createUniformBuffers();
-		void updateUniformBuffer(uint32_t currentImage);
 		void createDescriptorPool();
 		void createDescriptorSets();
-
-
-
-
 };
 
 #endif

@@ -8,6 +8,9 @@ VulkanApplicationSwapchainManager::VulkanApplicationSwapchainManager(VkPhysicalD
 VulkanApplicationSwapchainManager::~VulkanApplicationSwapchainManager() {}
 
 void VulkanApplicationSwapchainManager::cleanup(VkDevice logicalDevice) {
+	vkDestroyImageView(logicalDevice, depthImageView, nullptr);
+	vkDestroyImage(logicalDevice, depthImage, nullptr);
+	vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
 	for (size_t i = 0; i < swapchainFramebuffers.size(); i++) {
 		vkDestroyFramebuffer(logicalDevice, swapchainFramebuffers[i], nullptr);
 	}
@@ -43,7 +46,7 @@ std::vector<VkFramebuffer> VulkanApplicationSwapchainManager::getSwapchainFrameb
 	return this->swapchainFramebuffers;
 }
 
-void VulkanApplicationSwapchainManager::recreateSwapchain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow* window, VkRenderPass renderPass) {
+void VulkanApplicationSwapchainManager::recreateSwapchain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow* window, VkRenderPass renderPass, VkQueue graphicsQueue, VkCommandPool commandPool) {
 	int width = 0, height = 0;
 	glfwGetFramebufferSize(window, &width, &height);
 
@@ -58,14 +61,26 @@ void VulkanApplicationSwapchainManager::recreateSwapchain(VkPhysicalDevice physi
 
 	createSwapchain(physicalDevice, logicalDevice, surface, window);
 	createImageViews(logicalDevice);
+	createDepthResources(logicalDevice, physicalDevice, graphicsQueue, commandPool);
 	createFrameBuffer(logicalDevice, renderPass);
+}
+
+void VulkanApplicationSwapchainManager::createDepthResources(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, VkQueue graphicsQueue, VkCommandPool commandPool) {
+	VkFormat depthFormat = findDepthFormat(physicalDevice);
+	createImage(swapchainExtent.width, swapchainExtent.height, depthFormat,
+		VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		depthImage, depthImageMemory, logicalDevice, physicalDevice);
+
+	depthImageView = createImageView(depthImage, depthFormat, logicalDevice, VK_IMAGE_ASPECT_DEPTH_BIT);
+	transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		commandPool, logicalDevice, graphicsQueue);
 }
 
 void VulkanApplicationSwapchainManager::createImageViews(VkDevice logicalDevice) {
 	swapchainImageViews.resize(swapchainImages.size());
 
 	for (size_t i = 0; i < swapchainImages.size(); i++) {
-		swapchainImageViews[i] = createImageView(swapchainImages[i], swapchainImageFormat, logicalDevice);
+		swapchainImageViews[i] = createImageView(swapchainImages[i], swapchainImageFormat, logicalDevice, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 }
 
@@ -130,16 +145,18 @@ void VulkanApplicationSwapchainManager::createFrameBuffer(VkDevice logicalDevice
 	swapchainFramebuffers.resize(swapchainImageViews.size());
 
 	for (size_t i = 0; i < swapchainImageViews.size(); i++) {
-		VkImageView attachments[] = {
-			swapchainImageViews[i]
+
+		std::array<VkImageView, 2> attachments = {
+			swapchainImageViews[i],
+			depthImageView
 		};
 
 		VkFramebufferCreateInfo framebufferInfo{};
 
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		framebufferInfo.pAttachments = attachments.data();
 		framebufferInfo.width = swapchainExtent.width;
 		framebufferInfo.height = swapchainExtent.height;
 		framebufferInfo.layers = 1;

@@ -25,6 +25,7 @@
 #include <memory>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -63,8 +64,8 @@ struct SwapchainSupportDetails {
 };
 
 struct Vertex {
-	glm::vec3 color;
 	glm::vec3 pos;
+	glm::vec3 color;
 	glm::vec2 texCoord;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
@@ -111,13 +112,14 @@ std::vector<const char*> getRequiredExtensions();
 bool checkValidationLayerSupport();
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice pDevice, VkSurfaceKHR surface);
 SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
-VkImageView createImageView(VkImage image, VkFormat format, VkDevice logicalDevice);
+VkImageView createImageView(VkImage image, VkFormat format, VkDevice logicalDevice, VkImageAspectFlags aspectFlags);
 std::vector<char> readFile(const std::string& filename);
 void createBuffer(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage,
 	VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
 	VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
 	VkDeviceMemory& imageMemory, VkDevice logicalDevice, VkPhysicalDevice physicalDevice);
+bool hasStencilComponent(VkFormat format);
 void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
 	VkCommandPool commandPool, VkDevice logicalDevice, VkQueue graphicsQueue);
 void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
@@ -125,4 +127,6 @@ void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t 
 void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool commandPool, VkDevice logicalDevice, VkQueue graphicsQueue);
 VkCommandBuffer beginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool);
 uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+VkFormat findDepthFormat(VkPhysicalDevice physicalDevice);
+VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 #endif

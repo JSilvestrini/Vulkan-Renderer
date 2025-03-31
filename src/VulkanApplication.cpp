@@ -27,14 +27,11 @@ or if its dstQueueFamilyIndex is the queue family index that was used to create 
 then its dstAccessMask member must only contain access flags that are supported by one or more of the pipeline stages in dstStageMask,
 as specified in the table of supported access types (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/synchronization.html#VUID-vkCmdPipelineBarrier-pImageMemoryBarriers-02820)
 */
-/*
 
+/*
 	3. Buffer Manager
 		- Vertex, Index, and Uniform Buffer Info
 		- break out some common function
-	3a. Texture Manager
-		- Textures can go here
-		- Image Loading
 	4. Command Manager
 		- Command Pool and Command Buffer Info
 	7. OpenXR Manager
@@ -42,7 +39,6 @@ as specified in the table of supported access types (https://vulkan.lunarg.com/d
 		- Read OpenXR Official Tutorial for more Info
 	8. Camera Object (contains uniform information for uniform buffer)
 	10. Sync Object Manager
-
 */
 
 HelloTriangleApplication::HelloTriangleApplication() {
@@ -51,15 +47,14 @@ HelloTriangleApplication::HelloTriangleApplication() {
 	createSurface();
 	deviceManager = std::make_unique<VulkanApplicationDeviceManager>(instanceManager->getInstance(), surface);
 	swapchainManager = std::make_unique<VulkanApplicationSwapchainManager>(deviceManager->getPhysicalDevice(), deviceManager->getLogicalDevice(), surface, window);
-	graphicsManager = std::make_unique<VulkanApplicationGraphicsManager>(swapchainManager->getSwapchainImageFormat(), deviceManager->getLogicalDevice());
+	graphicsManager = std::make_unique<VulkanApplicationGraphicsManager>(swapchainManager->getSwapchainImageFormat(), deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice());
 	createDescriptorSetLayout();// descriptor file
 	graphicsManager->createGraphicsPipeline(deviceManager->getLogicalDevice(), descriptorSetLayout);
-	swapchainManager->createFrameBuffer(deviceManager->getLogicalDevice(), graphicsManager->getRenderPass());
 	createCommandPool();		// command
+	swapchainManager->createDepthResources(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), deviceManager->getGraphicsQueue(), commandPool);
+	swapchainManager->createFrameBuffer(deviceManager->getLogicalDevice(), graphicsManager->getRenderPass());
 	textureManager = std::make_unique<VulkanApplicationTextureManager>(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), commandPool, deviceManager->getGraphicsQueue());
-	createVertexBuffer();		// buffer
-	createIndexBuffer();		// buffer
-	createUniformBuffers();		// buffer
+	bufferManager = std::make_unique<VulkanApplicationBufferManager>(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), deviceManager->getGraphicsQueue(), commandPool);
 	createDescriptorPool();		// descriptor file
 	createDescriptorSets();		// descriptor file
 	createCommandBuffer();		// command
@@ -123,7 +118,7 @@ void HelloTriangleApplication::createDescriptorSets() {
 
 	for (size_t i = 0; i < kMAX_FRAMES_IN_FLIGHT; i++) {
 		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = uniformBuffers[i];
+		bufferInfo.buffer = bufferManager->getUniformBuffers()[i];
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBufferObject);
 
@@ -153,21 +148,6 @@ void HelloTriangleApplication::createDescriptorSets() {
 	}
 }
 
-void HelloTriangleApplication::createUniformBuffers() {
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-	uniformBuffers.resize(kMAX_FRAMES_IN_FLIGHT);
-	uniformBuffersMemories.resize(kMAX_FRAMES_IN_FLIGHT);
-	uniformBuffersMapped.resize(kMAX_FRAMES_IN_FLIGHT);
-
-	for (size_t i = 0; i < kMAX_FRAMES_IN_FLIGHT; i++) {
-		createBuffer(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemories[i]);
-
-		vkMapMemory(deviceManager->getLogicalDevice(), uniformBuffersMemories[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
-	}
-}
-
 void HelloTriangleApplication::createDescriptorSetLayout() {
 	VkDescriptorSetLayoutBinding uboLayoutBinding{};
 	uboLayoutBinding.binding = 0;
@@ -193,63 +173,6 @@ void HelloTriangleApplication::createDescriptorSetLayout() {
 	if (vkCreateDescriptorSetLayout(deviceManager->getLogicalDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to Create Descriptor Set Layout");
 	}
-}
-
-void HelloTriangleApplication::createVertexBuffer() {
-	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-
-	createBuffer(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(deviceManager->getLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t) bufferSize);
-	vkUnmapMemory(deviceManager->getLogicalDevice(), stagingBufferMemory);
-
-	createBuffer(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		vertexBuffer, vertexBufferMemory);
-
-	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-	vkDestroyBuffer(deviceManager->getLogicalDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(deviceManager->getLogicalDevice(), stagingBufferMemory, nullptr);
-}
-
-void HelloTriangleApplication::createIndexBuffer() {
-	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-
-	createBuffer(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(deviceManager->getLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), (size_t) bufferSize);
-	vkUnmapMemory(deviceManager->getLogicalDevice(), stagingBufferMemory);
-
-	createBuffer(deviceManager->getLogicalDevice(), deviceManager->getPhysicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-
-	copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-	vkDestroyBuffer(deviceManager->getLogicalDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(deviceManager->getLogicalDevice(), stagingBufferMemory, nullptr);
-}
-
-void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-	VkCommandBuffer commandBuffer = beginSingleTimeCommands(deviceManager->getLogicalDevice(), commandPool);
-
-	VkBufferCopy copyRegion{};
-	// srcOffset and dstOffset are optional
-	copyRegion.size = size;
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-	endSingleTimeCommands(commandBuffer, commandPool, deviceManager->getLogicalDevice(), deviceManager->getGraphicsQueue());
 }
 
 void HelloTriangleApplication::createSyncObjects() {
@@ -304,17 +227,19 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = swapchainManager->getSwapchainExtent();
 
-	VkClearValue clearColor = { { {0.0f, 0.0f, 0.0f, 1.0f} } };
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearColor;
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0] = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+	clearValues[1] = {1.0f, 0.0f};
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
 
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsManager->getGraphicsPipeline());
 
-	VkBuffer vertexBuffers[] = { vertexBuffer };
+	VkBuffer vertexBuffers[] = { bufferManager->getVertexBuffer()};
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(commandBuffer, bufferManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
@@ -333,7 +258,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsManager->getPipelineLayout(),
 		0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(bufferManager->getIndices().size()), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -382,7 +307,7 @@ void HelloTriangleApplication::drawFrame() {
 	VkResult result = vkAcquireNextImageKHR(deviceManager->getLogicalDevice(), swapchainManager->getSwapchain(), UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-		swapchainManager->recreateSwapchain(deviceManager->getPhysicalDevice(), deviceManager->getLogicalDevice(), surface, window, graphicsManager->getRenderPass());
+		swapchainManager->recreateSwapchain(deviceManager->getPhysicalDevice(), deviceManager->getLogicalDevice(), surface, window, graphicsManager->getRenderPass(), deviceManager->getGraphicsQueue(), commandPool);
 		return;
 	} else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("Failed to Acquire Swapchain Image");
@@ -392,7 +317,7 @@ void HelloTriangleApplication::drawFrame() {
 
 	vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 	recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
-	updateUniformBuffer(currentFrame);
+	bufferManager->updateUniformBuffer(currentFrame, swapchainManager->getSwapchainExtent());
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -431,26 +356,12 @@ void HelloTriangleApplication::drawFrame() {
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
 		framebufferResized = false;
-		swapchainManager->recreateSwapchain(deviceManager->getPhysicalDevice(), deviceManager->getLogicalDevice(), surface, window, graphicsManager->getRenderPass());
+		swapchainManager->recreateSwapchain(deviceManager->getPhysicalDevice(), deviceManager->getLogicalDevice(), surface, window, graphicsManager->getRenderPass(), deviceManager->getGraphicsQueue(), commandPool);
 	} else if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to Present Swapchain Image");
 	}
 
 	currentFrame = (currentFrame + 1) % kMAX_FRAMES_IN_FLIGHT;
-}
-
-void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage) {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-	UniformBufferObject ubo{};
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.projection = glm::perspective(glm::radians(45.0f), (swapchainManager->getSwapchainExtent().width / (float)swapchainManager->getSwapchainExtent().height), 0.1f, 10.0f);
-
-	ubo.projection[1][1] *= -1; // flip y since vulkan is upside down
-	memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
 void HelloTriangleApplication::cleanup() {
@@ -461,16 +372,7 @@ void HelloTriangleApplication::cleanup() {
 	vkDestroyDescriptorPool(deviceManager->getLogicalDevice(), descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(deviceManager->getLogicalDevice(), descriptorSetLayout, nullptr);
 
-	for (size_t i = 0; i < kMAX_FRAMES_IN_FLIGHT; i++) {
-		vkDestroyBuffer(deviceManager->getLogicalDevice(), uniformBuffers[i], nullptr);
-		vkFreeMemory(deviceManager->getLogicalDevice(), uniformBuffersMemories[i], nullptr);
-	}
-
-	vkDestroyBuffer(deviceManager->getLogicalDevice(), indexBuffer, nullptr);
-	vkFreeMemory(deviceManager->getLogicalDevice(), indexBufferMemory, nullptr);
-	vkDestroyBuffer(deviceManager->getLogicalDevice(), vertexBuffer, nullptr);
-	vkFreeMemory(deviceManager->getLogicalDevice(), vertexBufferMemory, nullptr);
-
+	bufferManager->cleanup(deviceManager->getLogicalDevice());
 	graphicsManager->cleanup(deviceManager->getLogicalDevice());
 
 	for (size_t i = 0; i < kMAX_FRAMES_IN_FLIGHT; i++) {

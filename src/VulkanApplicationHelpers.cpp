@@ -95,7 +95,7 @@ SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice physicalDevice, V
 	return details;
 }
 
-VkImageView createImageView(VkImage image, VkFormat format, VkDevice logicalDevice) {
+VkImageView createImageView(VkImage image, VkFormat format, VkDevice logicalDevice, VkImageAspectFlags aspectFlags) {
 	VkImageViewCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	createInfo.image = image;
@@ -108,7 +108,7 @@ VkImageView createImageView(VkImage image, VkFormat format, VkDevice logicalDevi
 	//createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY
 	//createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY
 
-	createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	createInfo.subresourceRange.aspectMask = aspectFlags;
 	createInfo.subresourceRange.baseMipLevel = 0;
 	createInfo.subresourceRange.levelCount = 1;
 	createInfo.subresourceRange.baseArrayLayer = 0;
@@ -180,6 +180,10 @@ void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling
 	vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 }
 
+bool hasStencilComponent(VkFormat format) {
+	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
 void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
 	VkCommandPool commandPool, VkDevice logicalDevice, VkQueue graphicsQueue) {
 	VkCommandBuffer commandBuffer = beginSingleTimeCommands(logicalDevice, commandPool);
@@ -201,6 +205,16 @@ void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayo
 	VkPipelineStageFlags sourceStage;
 	VkPipelineStageFlags destinationStage;
 
+	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		if (hasStencilComponent(format)) {
+			barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+	} else {
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+
 	if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 		barrier.srcAccessMask = 0; // from
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // to
@@ -213,6 +227,12 @@ void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayo
 
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	} else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	} else {
 		throw std::invalid_argument("Unsupported Layout Transition");
 	}
@@ -322,4 +342,27 @@ uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, Vk
 	}
 
 	throw std::runtime_error("Failed to Find Suitable Memory Type");
+}
+
+VkFormat findDepthFormat(VkPhysicalDevice physicalDevice) {
+	return findSupportedFormat(physicalDevice,
+		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+	);
+}
+
+VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+	for (VkFormat format : candidates) {
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+			return format;
+		} else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+			return format;
+		}
+	}
+
+	throw std::runtime_error("Failed to Find Supported Format");
 }

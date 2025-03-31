@@ -32,7 +32,7 @@ VkSampler VulkanApplicationTextureManager::getTextureSampler() {
 }
 
 void VulkanApplicationTextureManager::createTextureImageView(VkDevice logicalDevice) {
-	textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, logicalDevice);
+	textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, logicalDevice, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void VulkanApplicationTextureManager::createTextureSampler(VkDevice logicalDevice, VkPhysicalDevice physicalDevice) {
